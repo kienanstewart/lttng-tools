@@ -291,7 +291,8 @@ function report(result, details)
   fflush()
   # Log the result in the log file too, to help debugging (this is
   # especially true when said result is a TAP error or "Bail out!").
-  print result msg | "cat >&3";
+  # Use prepended "# " to avoid breaking tap4j parsing of test metadata
+  print "# " result msg | "cat >&3";
 }
 
 function testsuite_error(error_message)

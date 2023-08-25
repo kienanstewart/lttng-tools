@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 static int no_plan = 0;
 static int skip_all = 0;
@@ -25,6 +26,8 @@ static char *todo_msg = NULL;
 static const char *todo_msg_fixed = "libtap malloc issue";
 static int todo = 0;
 static int test_died = 0;
+static int time_tests = 1;
+static struct timespec last_time;
 
 /* Encapsulate the pthread code in a conditional.  In the absence of
    libpthread the code does nothing */
@@ -141,6 +144,7 @@ unsigned int _gen_result(
 	}
 
 	printf("\n");
+	_output_test_time();
 
 	if (!ok) {
 		if (getenv("HARNESS_ACTIVE") != NULL)
@@ -176,8 +180,18 @@ void _tap_init(void)
 		   in the same place relative to stderr output as it does
 		   with Test::Harness */
 		setbuf(stdout, 0);
+
+		char *autotime_env = getenv("TAP_AUTOTIME");
+		if (autotime_env != NULL) {
+			time_tests = atoi(autotime_env);
+			if (time_tests != 0) {
+				time_tests = 1;
+			}
+		}
+
 		run_once = 1;
 	}
+	clock_gettime(CLOCK_MONOTONIC, &last_time);
 }
 
 /*
@@ -319,6 +333,7 @@ int skip(unsigned int n, const char *fmt, ...)
 		printf("ok %d # skip %s\n",
 		       test_count,
 		       skip_msg != NULL ? skip_msg : "libtap():malloc() failed");
+		_output_test_time();
 	}
 
 	free(skip_msg);
@@ -326,6 +341,19 @@ int skip(unsigned int n, const char *fmt, ...)
 	UNLOCK;
 
 	return 1;
+}
+
+void _output_test_time(void)
+{
+	if (time_tests) {
+		struct timespec new_time;
+		clock_gettime(CLOCK_MONOTONIC, &new_time);
+
+		double time_ms = (double) (new_time.tv_sec - last_time.tv_sec) * 1000;
+		time_ms += ((double)(new_time.tv_nsec - last_time.tv_nsec)) / 1000000.0;
+		printf("  ---\n    duration_ms: %f\n  ...\n", time_ms);
+	}
+	clock_gettime(CLOCK_MONOTONIC, &last_time);
 }
 
 void todo_start(const char *fmt, ...)
